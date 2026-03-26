@@ -1,0 +1,6 @@
+#include "../src/resource.h"
+#include <winres.h>
+
+IDI_APP_ICON ICON "app.ico"
+
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "app.manifest"
