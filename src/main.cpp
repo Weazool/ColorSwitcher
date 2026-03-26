@@ -11,6 +11,9 @@
 #include "preset_editor.h"
 #include "nvapi_controller.h"
 
+// Version
+#define APP_VERSION "1.0.0"
+
 // Globals
 static HINSTANCE g_hInstance = NULL;
 static HWND g_hwndHidden = NULL;
@@ -29,7 +32,7 @@ static void SwitchPreset(const std::string& presetName);
 static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
 static void UpdateTooltip() {
-    std::string tip = "ColorSwitcher - ";
+    std::string tip = "ColorSwitcher v" APP_VERSION " - ";
     if (g_config.activePreset == "preset1") tip += "Preset 1";
     else if (g_config.activePreset == "preset2") tip += "Preset 2";
     else tip += "Default";
@@ -47,7 +50,7 @@ static void ShowTrayIcon() {
     g_nid.hIcon = LoadIconA(g_hInstance, MAKEINTRESOURCEA(IDI_APP_ICON));
 
     // Set initial tooltip before adding
-    std::string tip = "ColorSwitcher - ";
+    std::string tip = "ColorSwitcher v" APP_VERSION " - ";
     if (g_config.activePreset == "preset1") tip += "Preset 1";
     else if (g_config.activePreset == "preset2") tip += "Preset 2";
     else tip += "Default";
