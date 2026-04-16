@@ -10,6 +10,7 @@
 #include "autostart.h"
 #include "preset_editor.h"
 #include "nvapi_controller.h"
+#include "foreground_watcher.h"
 
 // Version
 #define APP_VERSION "1.0.0"
@@ -29,7 +30,62 @@ static void UpdateTooltip();
 static void ShowContextMenu(HWND hwnd);
 static void ApplyActivePreset();
 static void SwitchPreset(const std::string& presetName);
+static std::wstring GetForegroundExePath();
+static bool PathsEqualCI(const std::wstring& a, const std::wstring& b);
+static std::string PickPresetForPath(const std::wstring& path);
+static void ApplyPresetByName(const std::string& name);
 static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+
+static bool PathsEqualCI(const std::wstring& a, const std::wstring& b) {
+    if (a.size() != b.size()) return false;
+    if (a.empty()) return true;
+    return CompareStringOrdinal(a.c_str(), static_cast<int>(a.size()),
+                                b.c_str(), static_cast<int>(b.size()),
+                                TRUE) == CSTR_EQUAL;
+}
+
+static std::wstring GetForegroundExePath() {
+    HWND hwnd = GetForegroundWindow();
+    if (!hwnd) return {};
+
+    DWORD pid = 0;
+    GetWindowThreadProcessId(hwnd, &pid);
+    if (pid == 0) return {};
+    if (pid == GetCurrentProcessId()) return {};  // ignore our own windows
+
+    HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!hProc) return {};
+
+    wchar_t buf[MAX_PATH * 2];
+    DWORD size = static_cast<DWORD>(sizeof(buf) / sizeof(buf[0]));
+    std::wstring result;
+    if (QueryFullProcessImageNameW(hProc, 0, buf, &size) && size > 0) {
+        result.assign(buf, size);
+    }
+    CloseHandle(hProc);
+    return result;
+}
+
+static std::string PickPresetForPath(const std::wstring& path) {
+    if (path.empty()) return "default";
+    if (!g_config.processPath1.empty() && PathsEqualCI(path, g_config.processPath1))
+        return "preset1";
+    if (!g_config.processPath2.empty() && PathsEqualCI(path, g_config.processPath2))
+        return "preset2";
+    return "default";
+}
+
+static void ApplyPresetByName(const std::string& name) {
+    if (name == "preset1") {
+        GammaEngine::ApplyPreset(g_config.preset1);
+    } else if (name == "preset2") {
+        GammaEngine::ApplyPreset(g_config.preset2);
+    } else {
+        GammaEngine::ApplyDefault();
+    }
+    // Note: intentionally does NOT update g_config.activePreset or save config.
+    // activePreset keeps its meaning as "the user's last manual choice".
+}
 
 static void UpdateTooltip() {
     std::string tip = "ColorSwitcher v" APP_VERSION " - ";
