@@ -10,3 +10,5 @@ CMakeFiles/
 cmake_install.cmake
 .vs/
 *.user
+*.pfx
+*.pem

@@ -10,6 +10,7 @@
 #define IDM_CUSTOMIZE           1004
 #define IDM_AUTOSTART           1005
 #define IDM_QUIT                1006
+#define IDM_AUTOSWITCH          1007
 
 // Editor dialog controls
 #define IDD_PRESET_EDITOR       2000
@@ -35,6 +36,10 @@
 #define IDC_HOTKEY_PRESET2      2019
 #define IDC_SAVE_BTN            2020
 #define IDC_CANCEL_BTN          2021
+#define IDC_PROCESS_LABEL       2022
+#define IDC_PROCESS_PATH        2023
+#define IDC_PROCESS_BROWSE_BTN  2024
+#define IDC_PROCESS_CLEAR_BTN   2025
 
 // Global hotkey IDs (for RegisterHotKey)
 #define HOTKEY_ID_DEFAULT       3001

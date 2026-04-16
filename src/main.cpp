@@ -23,6 +23,15 @@ static AppConfig g_config;
 static const char* WINDOW_CLASS = "ColorSwitcherHiddenWnd";
 static const char* MUTEX_NAME = "ColorSwitcher_SingleInstance";
 
+// Full path (incl. exe name) of the most recent foreground window evaluated by
+// WM_FOREGROUND_CHANGED. Fixed-size wchar_t buffer at a stable address so the
+// value can be read externally (debugger / ReadProcessMemory). UTF-16LE,
+// null-terminated. Empty string before the first foreground event.
+// Intentionally non-static: external linkage keeps the symbol trivially
+// findable in the .map / PDB. The runtime address is also written to
+// %APPDATA%\ColorSwitcher\debug_address.txt on startup.
+wchar_t g_lastForegroundPath[MAX_PATH * 2] = L"";
+
 // Forward declarations
 static void ShowTrayIcon();
 static void RemoveTrayIcon();
@@ -146,6 +155,9 @@ static void ShowContextMenu(HWND hwnd) {
     AppendMenuA(hMenu, preset2Flags, IDM_PRESET2, "Preset 2");
     AppendMenuA(hMenu, defaultFlags, IDM_DEFAULT, "Default");
     AppendMenuA(hMenu, MF_SEPARATOR, 0, NULL);
+    UINT autoSwitchFlags = MF_STRING |
+        (g_config.autoSwitchByProcess ? MF_CHECKED : MF_UNCHECKED);
+    AppendMenuA(hMenu, autoSwitchFlags, IDM_AUTOSWITCH, "Auto-switch by process");
     AppendMenuA(hMenu, MF_STRING, IDM_CUSTOMIZE, "Customize Presets...");
 
     UINT autoStartFlags = MF_STRING | (AutoStart::IsEnabled() ? MF_CHECKED : MF_UNCHECKED);
@@ -224,6 +236,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             ConfigManager::Save(g_config);
             break;
         }
+        case IDM_AUTOSWITCH:
+            g_config.autoSwitchByProcess = !g_config.autoSwitchByProcess;
+            ConfigManager::Save(g_config);
+            break;
         case IDM_QUIT:
             DestroyWindow(hwnd);
             break;
@@ -248,6 +264,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
         return 0;
 
+    case WM_FOREGROUND_CHANGED: {
+        std::wstring path = GetForegroundExePath();
+        lstrcpynW(g_lastForegroundPath, path.c_str(),
+                  sizeof(g_lastForegroundPath) / sizeof(wchar_t));
+        if (g_config.autoSwitchByProcess) {
+            ApplyPresetByName(PickPresetForPath(path));
+        }
+        return 0;
+    }
+
     case WM_DISPLAYCHANGE:
         ApplyActivePreset();
         return 0;
@@ -259,6 +285,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return DefWindowProc(hwnd, msg, wParam, lParam);
 
     case WM_DESTROY:
+        ForegroundWatcher::Stop();
         UnregisterAllHotkeys();
         GammaEngine::ApplyDefault();
         RemoveTrayIcon();
@@ -316,6 +343,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
 
     // Register global hotkeys
     RegisterAllHotkeys();
+    ForegroundWatcher::Start(g_hwndHidden);
 
     // Message loop
     MSG msg;

@@ -3,6 +3,8 @@
 #include "nvapi_controller.h"
 #include "resource.h"
 #include <commctrl.h>
+#include <commdlg.h>
+#include <shlobj.h>
 #include <string>
 #include <cstdio>
 
@@ -28,6 +30,9 @@ static HWND g_hwndHueValue = NULL;
 static HWND g_hwndHotkeyDefault = NULL;
 static HWND g_hwndHotkeyPreset1 = NULL;
 static HWND g_hwndHotkeyPreset2 = NULL;
+static HWND g_hwndProcessPath = NULL;
+static HWND g_hwndProcessBrowse = NULL;
+static HWND g_hwndProcessClear = NULL;
 
 static const char* EDITOR_CLASS = "ColorSwitcherEditor";
 
@@ -73,6 +78,30 @@ static void LoadHotkeysToControls() {
 
 ColorPreset& CurrentPreset() {
     return g_currentPresetIndex == 0 ? g_pConfig->preset1 : g_pConfig->preset2;
+}
+
+std::wstring& CurrentProcessPath() {
+    return g_currentPresetIndex == 0 ? g_pConfig->processPath1
+                                     : g_pConfig->processPath2;
+}
+
+void LoadProcessPathToControl() {
+    const std::wstring& p = CurrentProcessPath();
+    SetWindowTextW(g_hwndProcessPath, p.c_str());
+}
+
+void ReadProcessPathFromControl() {
+    wchar_t buf[MAX_PATH * 2];
+    int n = GetWindowTextW(g_hwndProcessPath, buf, static_cast<int>(sizeof(buf) / sizeof(buf[0])));
+    CurrentProcessPath().assign(buf, n);
+}
+
+bool PresetEditorPathsEqualCI(const std::wstring& a, const std::wstring& b) {
+    if (a.size() != b.size()) return false;
+    if (a.empty()) return true;
+    return CompareStringOrdinal(a.c_str(), static_cast<int>(a.size()),
+                                b.c_str(), static_cast<int>(b.size()),
+                                TRUE) == CSTR_EQUAL;
 }
 
 void UpdateValueLabels() {
@@ -197,10 +226,32 @@ LRESULT CALLBACK EditorWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
         g_hwndHueValue = CreateLabel(hwnd, hInst, "0\xC2\xB0", valueX, y + 5, valueW, 20);
         y += rowH + 8;
 
+        // Process (foreground-match exe)
+        CreateLabel(hwnd, hInst, "Process:", 10, y + 5, labelW, 20);
+        g_hwndProcessPath = CreateWindowExW(
+            WS_EX_CLIENTEDGE, L"EDIT", L"",
+            WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_READONLY,
+            sliderX, y + 3, 165, 22, hwnd,
+            reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_PROCESS_PATH)),
+            hInst, NULL);
+        g_hwndProcessBrowse = CreateWindowExA(
+            0, "BUTTON", "Browse...",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            sliderX + 170, y + 2, 70, 24, hwnd,
+            reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_PROCESS_BROWSE_BTN)),
+            hInst, NULL);
+        g_hwndProcessClear = CreateWindowExA(
+            0, "BUTTON", "X",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            sliderX + 170 + 72, y + 2, 22, 24, hwnd,
+            reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_PROCESS_CLEAR_BTN)),
+            hInst, NULL);
+        y += rowH;
+
         // Separator line
         CreateWindowExA(0, "STATIC", "",
             WS_CHILD | WS_VISIBLE | SS_ETCHEDHORZ,
-            10, y, 310, 2, hwnd, NULL, hInst, NULL);
+            10, y, 350, 2, hwnd, NULL, hInst, NULL);
         y += 8;
 
         // Shortcuts section
@@ -237,6 +288,7 @@ LRESULT CALLBACK EditorWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             hInst, NULL);
 
         LoadSlidersFromPreset();
+        LoadProcessPathToControl();
         LoadHotkeysToControls();
 
         // Set font for all child controls
@@ -266,15 +318,52 @@ LRESULT CALLBACK EditorWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
         case IDC_PRESET_COMBO:
             if (HIWORD(wParam) == CBN_SELCHANGE) {
                 ReadSlidersToPreset();
+                ReadProcessPathFromControl();
                 g_currentPresetIndex = static_cast<int>(SendMessage(g_hwndCombo, CB_GETCURSEL, 0, 0));
                 LoadSlidersFromPreset();
+                LoadProcessPathToControl();
                 LivePreview();
             }
+            break;
+
+        case IDC_PROCESS_BROWSE_BTN: {
+            wchar_t buf[MAX_PATH * 2] = L"";
+            OPENFILENAMEW ofn = {};
+            ofn.lStructSize = sizeof(ofn);
+            ofn.hwndOwner = hwnd;
+            ofn.lpstrFilter = L"Executables (*.exe)\0*.exe\0All files (*.*)\0*.*\0";
+            ofn.lpstrFile = buf;
+            ofn.nMaxFile = static_cast<DWORD>(sizeof(buf) / sizeof(buf[0]));
+            ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+            wchar_t progFiles[MAX_PATH];
+            if (SHGetFolderPathW(NULL, CSIDL_PROGRAM_FILES, NULL, 0, progFiles) == S_OK) {
+                ofn.lpstrInitialDir = progFiles;
+            }
+            ofn.lpstrTitle = L"Select executable";
+            if (GetOpenFileNameW(&ofn)) {
+                SetWindowTextW(g_hwndProcessPath, buf);
+            }
+            break;
+        }
+
+        case IDC_PROCESS_CLEAR_BTN:
+            SetWindowTextW(g_hwndProcessPath, L"");
             break;
 
         case IDC_SAVE_BTN:
             ReadSlidersToPreset();
             ReadHotkeysFromControls();
+            ReadProcessPathFromControl();
+            if (!g_pConfig->processPath1.empty() &&
+                !g_pConfig->processPath2.empty() &&
+                PresetEditorPathsEqualCI(g_pConfig->processPath1,
+                                         g_pConfig->processPath2)) {
+                MessageBoxW(hwnd,
+                    L"Preset 1 and Preset 2 are set to the same executable.\n"
+                    L"Clear one before saving.",
+                    L"ColorSwitcher", MB_OK | MB_ICONWARNING);
+                return 0;  // keep dialog open
+            }
             ConfigManager::Save(*g_pConfig);
             if ((g_currentPresetIndex == 0 && g_pConfig->activePreset == "preset1") ||
                 (g_currentPresetIndex == 1 && g_pConfig->activePreset == "preset2")) {
@@ -345,7 +434,7 @@ void Show(HINSTANCE hInstance, HWND hwndParent, AppConfig& config) {
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     RegisterClassExA(&wc);
 
-    int winW = 340, winH = 430;
+    int winW = 380, winH = 465;
 
     int screenW = GetSystemMetrics(SM_CXSCREEN);
     int screenH = GetSystemMetrics(SM_CYSCREEN);
