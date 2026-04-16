@@ -44,3 +44,4 @@
 // Custom messages
 #define WM_TRAYICON             (WM_USER + 1)
 #define WM_HOTKEYS_CHANGED      (WM_USER + 2)
+#define WM_FOREGROUND_CHANGED   (WM_USER + 3)

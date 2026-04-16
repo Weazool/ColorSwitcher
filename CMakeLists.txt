@@ -16,6 +16,7 @@ add_executable(ColorSwitcher WIN32
     src/preset_editor.cpp
     src/autostart.cpp
     src/nvapi_controller.cpp
+    src/foreground_watcher.cpp
     resources/app.rc
 )
 
