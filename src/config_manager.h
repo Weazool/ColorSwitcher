@@ -16,6 +16,9 @@ struct AppConfig {
     HotkeyBinding hotkeyDefault;
     HotkeyBinding hotkeyPreset1;
     HotkeyBinding hotkeyPreset2;
+    bool autoSwitchByProcess = false;
+    std::wstring processPath1;  // empty = unassigned
+    std::wstring processPath2;
 };
 
 namespace ConfigManager {

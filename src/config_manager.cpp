@@ -60,6 +60,26 @@ std::string GetExeDirectory() {
     return (pos != std::string::npos) ? s.substr(0, pos) : s;
 }
 
+std::string WideToUtf8(const std::wstring& w) {
+    if (w.empty()) return {};
+    int len = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), static_cast<int>(w.size()),
+                                  nullptr, 0, nullptr, nullptr);
+    std::string out(len, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), static_cast<int>(w.size()),
+                        out.data(), len, nullptr, nullptr);
+    return out;
+}
+
+std::wstring Utf8ToWide(const std::string& s) {
+    if (s.empty()) return {};
+    int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), static_cast<int>(s.size()),
+                                  nullptr, 0);
+    std::wstring out(len, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), static_cast<int>(s.size()),
+                        out.data(), len);
+    return out;
+}
+
 } // anonymous namespace
 
 namespace ConfigManager {
@@ -119,6 +139,15 @@ AppConfig Load() {
         if (j.contains("hotkeyPreset2") && j["hotkeyPreset2"].is_object())
             config.hotkeyPreset2 = ParseHotkey(j["hotkeyPreset2"]);
 
+        if (j.contains("autoSwitchByProcess") && j["autoSwitchByProcess"].is_boolean())
+            config.autoSwitchByProcess = j["autoSwitchByProcess"].get<bool>();
+
+        if (j.contains("processPath1") && j["processPath1"].is_string())
+            config.processPath1 = Utf8ToWide(j["processPath1"].get<std::string>());
+
+        if (j.contains("processPath2") && j["processPath2"].is_string())
+            config.processPath2 = Utf8ToWide(j["processPath2"].get<std::string>());
+
     } catch (const json::exception& e) {
         OutputDebugStringA("ColorSwitcher: config parse error: ");
         OutputDebugStringA(e.what());
@@ -140,6 +169,9 @@ bool Save(const AppConfig& config) {
     j["hotkeyDefault"] = HotkeyToJson(config.hotkeyDefault);
     j["hotkeyPreset1"] = HotkeyToJson(config.hotkeyPreset1);
     j["hotkeyPreset2"] = HotkeyToJson(config.hotkeyPreset2);
+    j["autoSwitchByProcess"] = config.autoSwitchByProcess;
+    j["processPath1"] = WideToUtf8(config.processPath1);
+    j["processPath2"] = WideToUtf8(config.processPath2);
 
     std::string path = GetConfigPath();
     std::ofstream file(path);
