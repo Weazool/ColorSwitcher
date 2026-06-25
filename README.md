@@ -72,7 +72,8 @@ Stored at `%APPDATA%\ColorSwitcher\config.json` (created automatically on first 
   },
   "hotkeyDefault": { "modifiers": 0, "vk": 0 },
   "hotkeyPreset1": { "modifiers": 0, "vk": 0 },
-  "hotkeyPreset2": { "modifiers": 0, "vk": 0 }
+  "hotkeyPreset2": { "modifiers": 0, "vk": 0 },
+  "hotkeySignal": { "modifiers": 0, "vk": 0 }
 }
 ```
 
@@ -101,6 +102,7 @@ third_party/
 - **NVAPI** is loaded dynamically from `nvapi64.dll` (installed by NVIDIA drivers). No SDK files are shipped. If no NVIDIA GPU is present, vibrance/hue sliders are grayed out but everything else works.
 - **Display changes** and **wake from sleep** automatically re-apply the active preset (`WM_DISPLAYCHANGE`, `WM_POWERBROADCAST`).
 - **Primary display only** — multi-monitor is not supported.
+- **Signal hotkey** — an optional `hotkeySignal` binding performs no color action; while its chord is physically held, the process global `g_hotkeyPressed` (a 4-byte value) reads `1`, otherwise `0`. It is a non-`static` global at a stable address (like `g_lastForegroundPath`), so other software can poll it via `ReadProcessMemory`. Detection is a ~30 ms `GetAsyncKeyState` poll, so the keystroke is not consumed and works regardless of focus.
 
 ## License
 

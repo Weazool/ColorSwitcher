@@ -30,6 +30,7 @@ static HWND g_hwndHueValue = NULL;
 static HWND g_hwndHotkeyDefault = NULL;
 static HWND g_hwndHotkeyPreset1 = NULL;
 static HWND g_hwndHotkeyPreset2 = NULL;
+static HWND g_hwndHotkeySignal = NULL;
 static HWND g_hwndProcessPath = NULL;
 static HWND g_hwndProcessBrowse = NULL;
 static HWND g_hwndProcessClear = NULL;
@@ -65,6 +66,8 @@ static void ReadHotkeysFromControls() {
         static_cast<WORD>(SendMessage(g_hwndHotkeyPreset1, HKM_GETHOTKEY, 0, 0)));
     g_pConfig->hotkeyPreset2 = ControlToHotkeyBinding(
         static_cast<WORD>(SendMessage(g_hwndHotkeyPreset2, HKM_GETHOTKEY, 0, 0)));
+    g_pConfig->hotkeySignal = ControlToHotkeyBinding(
+        static_cast<WORD>(SendMessage(g_hwndHotkeySignal, HKM_GETHOTKEY, 0, 0)));
 }
 
 static void LoadHotkeysToControls() {
@@ -74,6 +77,8 @@ static void LoadHotkeysToControls() {
         HotkeyBindingToControl(g_pConfig->hotkeyPreset1), 0);
     SendMessage(g_hwndHotkeyPreset2, HKM_SETHOTKEY,
         HotkeyBindingToControl(g_pConfig->hotkeyPreset2), 0);
+    SendMessage(g_hwndHotkeySignal, HKM_SETHOTKEY,
+        HotkeyBindingToControl(g_pConfig->hotkeySignal), 0);
 }
 
 ColorPreset& CurrentPreset() {
@@ -273,6 +278,11 @@ LRESULT CALLBACK EditorWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
         CreateLabel(hwnd, hInst, "Preset 2:", 10, y + 3, hkLabelW, 16);
         g_hwndHotkeyPreset2 = CreateHotkeyControl(hwnd, hInst, IDC_HOTKEY_PRESET2,
             hkX, y, hkW, 22);
+        y += 26;
+
+        CreateLabel(hwnd, hInst, "Signal:", 10, y + 3, hkLabelW, 16);
+        g_hwndHotkeySignal = CreateHotkeyControl(hwnd, hInst, IDC_HOTKEY_SIGNAL,
+            hkX, y, hkW, 22);
         y += 34;
 
         // Buttons
@@ -434,7 +444,7 @@ void Show(HINSTANCE hInstance, HWND hwndParent, AppConfig& config) {
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     RegisterClassExA(&wc);
 
-    int winW = 380, winH = 465;
+    int winW = 380, winH = 491;
 
     int screenW = GetSystemMetrics(SM_CXSCREEN);
     int screenH = GetSystemMetrics(SM_CYSCREEN);

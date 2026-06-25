@@ -28,9 +28,18 @@ static const char* MUTEX_NAME = "ColorSwitcher_SingleInstance";
 // value can be read externally (debugger / ReadProcessMemory). UTF-16LE,
 // null-terminated. Empty string before the first foreground event.
 // Intentionally non-static: external linkage keeps the symbol trivially
-// findable in the .map / PDB. The runtime address is also written to
-// %APPDATA%\ColorSwitcher\debug_address.txt on startup.
+// findable in the .map / PDB.
 wchar_t g_lastForegroundPath[MAX_PATH * 2] = L"";
+
+// Set to 1 while the configured "signal" hotkey chord is physically held, 0
+// otherwise. Updated by a polling timer (TIMER_ID_HOTKEY) reading key state.
+// Like g_lastForegroundPath, a non-static global at a stable address so the
+// value can be read externally (debugger / ReadProcessMemory). 0 before the
+// first poll. The hotkey performs no preset action — it only drives this flag.
+volatile long g_hotkeyPressed = 0;
+
+// Poll interval (ms) for the signal hotkey; ~33 Hz, negligible CPU.
+static const UINT SIGNAL_POLL_MS = 30;
 
 // Forward declarations
 static void ShowTrayIcon();
@@ -43,6 +52,8 @@ static std::wstring GetForegroundExePath();
 static bool PathsEqualCI(const std::wstring& a, const std::wstring& b);
 static std::string PickPresetForPath(const std::wstring& path);
 static void ApplyPresetByName(const std::string& name);
+static bool SignalChordHeld(const HotkeyBinding& hk);
+static void UpdateSignalHotkey();
 static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
 static bool PathsEqualCI(const std::wstring& a, const std::wstring& b) {
@@ -198,6 +209,33 @@ static void RegisterAllHotkeys() {
     RegisterHotkey(HOTKEY_ID_PRESET2, g_config.hotkeyPreset2);
 }
 
+static bool KeyDown(int vk) {
+    return (GetAsyncKeyState(vk) & 0x8000) != 0;
+}
+
+// True iff every key of the chord is currently held: the main virtual key plus
+// each required modifier. Extra modifiers held alongside do not cancel it.
+static bool SignalChordHeld(const HotkeyBinding& hk) {
+    if (hk.vk == 0) return false;
+    if (!KeyDown(static_cast<int>(hk.vk))) return false;
+    if ((hk.modifiers & MOD_CONTROL) && !KeyDown(VK_CONTROL)) return false;
+    if ((hk.modifiers & MOD_ALT)     && !KeyDown(VK_MENU))    return false;
+    if ((hk.modifiers & MOD_SHIFT)   && !KeyDown(VK_SHIFT))   return false;
+    if ((hk.modifiers & MOD_WIN)     && !(KeyDown(VK_LWIN) || KeyDown(VK_RWIN)))
+        return false;
+    return true;
+}
+
+// Start/stop the signal-hotkey poll timer to match the current binding.
+static void UpdateSignalHotkey() {
+    if (g_config.hotkeySignal.vk != 0) {
+        SetTimer(g_hwndHidden, TIMER_ID_HOTKEY, SIGNAL_POLL_MS, NULL);
+    } else {
+        KillTimer(g_hwndHidden, TIMER_ID_HOTKEY);
+        g_hotkeyPressed = 0;
+    }
+}
+
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_TRAYICON:
@@ -248,6 +286,13 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
     case WM_HOTKEYS_CHANGED:
         RegisterAllHotkeys();
+        UpdateSignalHotkey();
+        return 0;
+
+    case WM_TIMER:
+        if (wParam == TIMER_ID_HOTKEY) {
+            g_hotkeyPressed = SignalChordHeld(g_config.hotkeySignal) ? 1 : 0;
+        }
         return 0;
 
     case WM_HOTKEY:
@@ -286,6 +331,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
     case WM_DESTROY:
         ForegroundWatcher::Stop();
+        KillTimer(hwnd, TIMER_ID_HOTKEY);
+        g_hotkeyPressed = 0;
         UnregisterAllHotkeys();
         GammaEngine::ApplyDefault();
         RemoveTrayIcon();
@@ -343,6 +390,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
 
     // Register global hotkeys
     RegisterAllHotkeys();
+    UpdateSignalHotkey();
     ForegroundWatcher::Start(g_hwndHidden);
 
     // Message loop

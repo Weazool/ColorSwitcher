@@ -16,6 +16,7 @@ struct AppConfig {
     HotkeyBinding hotkeyDefault;
     HotkeyBinding hotkeyPreset1;
     HotkeyBinding hotkeyPreset2;
+    HotkeyBinding hotkeySignal;   // sets g_hotkeyPressed while held (no preset action)
     bool autoSwitchByProcess = false;
     std::wstring processPath1;  // empty = unassigned
     std::wstring processPath2;

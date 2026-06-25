@@ -138,6 +138,8 @@ AppConfig Load() {
             config.hotkeyPreset1 = ParseHotkey(j["hotkeyPreset1"]);
         if (j.contains("hotkeyPreset2") && j["hotkeyPreset2"].is_object())
             config.hotkeyPreset2 = ParseHotkey(j["hotkeyPreset2"]);
+        if (j.contains("hotkeySignal") && j["hotkeySignal"].is_object())
+            config.hotkeySignal = ParseHotkey(j["hotkeySignal"]);
 
         if (j.contains("autoSwitchByProcess") && j["autoSwitchByProcess"].is_boolean())
             config.autoSwitchByProcess = j["autoSwitchByProcess"].get<bool>();
@@ -169,6 +171,7 @@ bool Save(const AppConfig& config) {
     j["hotkeyDefault"] = HotkeyToJson(config.hotkeyDefault);
     j["hotkeyPreset1"] = HotkeyToJson(config.hotkeyPreset1);
     j["hotkeyPreset2"] = HotkeyToJson(config.hotkeyPreset2);
+    j["hotkeySignal"] = HotkeyToJson(config.hotkeySignal);
     j["autoSwitchByProcess"] = config.autoSwitchByProcess;
     j["processPath1"] = WideToUtf8(config.processPath1);
     j["processPath2"] = WideToUtf8(config.processPath2);

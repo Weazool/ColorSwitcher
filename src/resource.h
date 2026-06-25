@@ -40,11 +40,15 @@
 #define IDC_PROCESS_PATH        2023
 #define IDC_PROCESS_BROWSE_BTN  2024
 #define IDC_PROCESS_CLEAR_BTN   2025
+#define IDC_HOTKEY_SIGNAL       2026
 
 // Global hotkey IDs (for RegisterHotKey)
 #define HOTKEY_ID_DEFAULT       3001
 #define HOTKEY_ID_PRESET1       3002
 #define HOTKEY_ID_PRESET2       3003
+
+// Timer IDs (for SetTimer)
+#define TIMER_ID_HOTKEY         4001
 
 // Custom messages
 #define WM_TRAYICON             (WM_USER + 1)
